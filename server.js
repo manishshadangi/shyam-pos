@@ -5,52 +5,61 @@ const path = require('path');
 require('dotenv').config();
 
 const app = express();
+
+// 1. IMPORTANT: This tells the server it's okay to accept data from your website
 app.use(cors());
 app.use(express.json());
 
-// Connect to your Supabase Database
+// 2. Connect to Supabase
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: { rejectUnauthorized: false }
 });
 
-// 1. GET ALL PRODUCTS
-app.get('/api/products', async (req, res) => {
-  try {
-    const result = await pool.query('SELECT * FROM products ORDER BY name ASC');
-    res.json(result.rows);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-// 2. CREATE INVOICE (Deduct Stock & Save Sale)
+// 3. Checkout Route (Saves the Bill)
 app.post('/api/checkout', async (req, res) => {
-  const { items, total, payment_method, customer_phone } = req.body;
+  console.log("Pay button clicked! Data received:", req.body);
+  
+  const { items, total, payment_method } = req.body;
+  
   try {
+    // Start a transaction (Ensures all data saves or nothing saves)
     await pool.query('BEGIN');
-    const invoice = await pool.query(
-      'INSERT INTO invoices (total_amount, payment_method, customer_phone) VALUES ($1, $2, $3) RETURNING id',
-      [total, payment_method, customer_phone]
+    
+    // Insert into Invoices
+    const invoiceResult = await pool.query(
+      'INSERT INTO invoices (total_amount, payment_method) VALUES ($1, $2) RETURNING id',
+      [total, payment_method]
     );
+    
+    const invoiceId = invoiceResult.rows[0].id;
 
+    // Loop through items and save them
     for (let item of items) {
-      await pool.query('UPDATE products SET stock_qty = stock_qty - $1 WHERE id = $2', [item.qty, item.id]);
-      await pool.query('INSERT INTO invoice_items (invoice_id, product_id, qty, price) VALUES ($1, $2, $3, $4)', 
-      [invoice.rows[0].id, item.id, item.qty, item.price]);
+      await pool.query(
+        'INSERT INTO invoice_items (invoice_id, product_id, qty, price) VALUES ($1, $2, $3, $4)', 
+        [invoiceId, item.id, item.qty, item.price]
+      );
     }
 
     await pool.query('COMMIT');
-    res.json({ success: true, invoice_id: invoice.rows[0].id });
+    console.log("Bill Saved Successfully! ID:", invoiceId);
+    res.json({ success: true, invoice_id: invoiceId });
+
   } catch (err) {
     await pool.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
+    console.error("DATABASE ERROR:", err.message);
+    res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// Serve the Frontend
-app.use(express.static('public'));
-app.get('*', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// 4. Serve the POS Screen
+app.use(express.static(path.join(__dirname, 'public')));
 
-const PORT = process.env.PORT || 3000;
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// Render usually uses Port 10000
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
