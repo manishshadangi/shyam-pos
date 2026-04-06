@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Shyam POS - Checkout</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 flex h-screen">
+    <div class="w-2/3 p-6 overflow-y-auto">
+        <h2 class="text-2xl font-bold mb-4">Shree Shyam Students Emporium</h2>
+        <div id="products" class="grid grid-cols-3 gap-4"></div>
+    </div>
+
+    <div class="w-1/3 bg-white shadow-xl p-6 flex flex-col">
+        <h2 class="text-xl font-bold border-b pb-4">Current Bill</h2>
+        <div id="cart" class="flex-grow py-4 overflow-y-auto"></div>
+        <div class="border-t pt-4">
+            <div class="flex justify-between text-2xl font-bold mb-4">
+                <span>Total:</span><span id="total-price">₹0</span>
+            </div>
+            <button onclick="pay('CASH')" class="w-full bg-green-600 text-white py-4 rounded-lg mb-2 font-bold">PAY CASH</button>
+            <button onclick="pay('UPI')" class="w-full bg-blue-600 text-white py-4 rounded-lg font-bold">PAY UPI</button>
+        </div>
+    </div>
+
+    <script>
+        let cart = [];
+        let products = [
+            { id: 1, name: "Notebook", price: 60, stock: 100 },
+            { id: 2, name: "Gel Pen", price: 10, stock: 500 },
+            { id: 3, name: "Lipstick", price: 350, stock: 50 }
+        ];
+
+        function render() {
+            document.getElementById('products').innerHTML = products.map(p => `
+                <div onclick="add(${p.id})" class="bg-white p-4 rounded-xl shadow cursor-pointer hover:border-blue-500 border-2 transition">
+                    <p class="font-bold text-lg">${p.name}</p>
+                    <p class="text-blue-600 font-bold">₹${p.price}</p>
+                </div>
+            `).join('');
+
+            document.getElementById('cart').innerHTML = cart.map(i => `
+                <div class="flex justify-between mb-2"><span>${i.name} x ${i.qty}</span><span>₹${i.price * i.qty}</span></div>
+            `).join('');
+
+            let total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+            document.getElementById('total-price').innerText = "₹" + total;
+        }
+
+        function add(id) {
+            let p = products.find(x => x.id === id);
+            let inCart = cart.find(x => x.id === id);
+            if(inCart) inCart.qty++; else cart.push({...p, qty: 1});
+            render();
+        }
+
+        async function pay(method) {
+            const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+            alert("Generating Bill for ₹" + total + " via " + method);
+            // In real deployment, this calls your API: fetch('/api/checkout', {method:'POST', body:...})
+            cart = []; render();
+        }
+        render();
+    </script>
+</body>
+</html>
