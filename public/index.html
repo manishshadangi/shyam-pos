@@ -54,10 +54,33 @@
         }
 
         async function pay(method) {
-            const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
-            alert("Generating Bill for ₹" + total + " via " + method);
-            // In real deployment, this calls your API: fetch('/api/checkout', {method:'POST', body:...})
-            cart = []; render();
+    const total = cart.reduce((s, i) => s + (i.price * i.qty), 0);
+    
+    // 1. Show a loading message
+    console.log("Saving to Database...");
+
+    // 2. Send the data to your Render Server
+    const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            items: cart,
+            total: total,
+            payment_method: method,
+            customer_phone: "9999999999" // You can add a box for this later
+        })
+    });
+
+    const result = await response.json();
+
+    if (result.success) {
+        alert("✅ BILL SAVED TO DATABASE!\nTotal: ₹" + total + "\nMethod: " + method);
+        cart = []; // Clear the cart for the next customer
+        render();
+    } else {
+        alert("❌ Error saving bill. Check your Render logs.");
+    }
+}
         }
         render();
     </script>
